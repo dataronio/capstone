@@ -309,6 +309,52 @@ def model10_model(input_dim, filters, conv_stride,
     print(model.summary())
     return model
 
+def model11_model(input_dim, filters, conv_stride,
+                  conv_border_mode, units, output_dim=29):
+    """ Build a deep network for speech 
+    """
+    kernels = [11]
+    # Main acoustic input
+    input_data = Input(name='the_input', shape=(None, input_dim))
+    # Specify the layers in your network
+    # Add convolutional layer
+    conv_1d_0 = Conv1D(filters, kernels[0], 
+                     strides=conv_stride, 
+                     padding=conv_border_mode,
+                     activation='relu',
+                     name='conv_1d_0')(input_data)
+    # Add batch normalization
+    bn_cnn_0 = BatchNormalization(name='bn_conv_1d_0')(conv_1d_0)
+    rnn_units = units 
+    Bd_simp_rnn = Bidirectional(SimpleRNN(rnn_units, activation='relu',
+                                return_sequences=True, implementation=2, name='Bd_rnn'))(bn_cnn_0)
+    # Add batch normalization
+    bn_rnn = BatchNormalization(name='bn_rnn')(Bd_simp_rnn)
+    # add another SimpleRNN layer
+    Bd_simp_rnn_2 = Bidirectional(SimpleRNN(rnn_units, activation='relu',
+                               return_sequences=True, implementation=2, name='Bd_rnn_2'))(bn_rnn)
+    bn_rnn_2 = BatchNormalization(name='bn_rnn_2')(Bd_simp_rnn_2)
+    # add another TimeDistributed(Dense(100)) layer
+    time_dense_1 = TimeDistributed(Dense(100), name='time_dense_1')(bn_rnn_2)
+    bn_time_dense_1 = BatchNormalization(name='bn_time_dense_1')(time_dense_1)
+    drop_time_dense_1 = Dropout(.5, name='dropout_time_dense_1')(bn_time_dense_1)
+    # add another TimeDistributed(Dense(50)) layer
+    time_dense_2 = TimeDistributed(Dense(50), name='time_dense_2')(drop_time_dense_1)
+    bn_time_dense_2 = BatchNormalization(name='bn_time_dense_2')(time_dense_2)
+    drop_time_dense_2 = Dropout(.5, name='dropout_time_dense_2')(bn_time_dense_2)
+    # Add a TimeDistributed(Dense(output_dim)) layer
+    time_dense = TimeDistributed(Dense(output_dim), name='time_dense')(drop_time_dense_2)
+    # Add softmax activation layer
+    y_pred = Activation('softmax', name='softmax')(time_dense)
+    # Specify the model
+    model = Model(inputs=input_data, outputs=y_pred)
+    # Specify model.output_length
+    model.output_length = lambda x: new_cnn_output_length(
+        x, kernels, conv_border_mode, conv_stride)
+    print(model.summary())
+    return model
+
+
 def conv2D_model(input_dim, filters, conv_stride,
                  conv_border_mode, units, output_dim=29):
     kernel_size = 11
